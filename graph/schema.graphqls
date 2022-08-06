@@ -1,0 +1,58 @@
+input PlantTemplateInput {
+  name: String!
+  waterThreshold: Float!
+}
+
+type PlantTemplate {
+  id: ID!
+  name: String!
+  waterThreshold: Float!
+}
+
+input PlantInput {
+  templateID: ID!
+  active: Boolean!
+  name: String!
+  port: String!
+}
+
+type Plant {
+  id: ID!
+  active: Boolean!
+  name: String!
+  port: String!
+  template: PlantTemplate!
+}
+
+input StationInput {
+  name: String
+}
+
+type Station {
+  id: ID!
+  name: String!
+  waterLevel: Float!
+  plants: [Plant]!
+}
+
+type Mutation {
+  createPlantTemplate(input: PlantTemplateInput!): PlantTemplate!
+  updatePlantTemplate(id: ID!, input: PlantTemplateInput!): PlantTemplate!
+  deletePlantTemplate(ids: [ID]!):  [ID]!
+
+  createPlant(stationID: ID!, input: PlantInput!): Plant!
+  updatePlant(id: ID!, stationID: ID!, input: PlantInput!): Plant!
+  deletePlant(id: ID!): Boolean!
+
+  updateStation(id: ID!, input: StationInput!): Station!
+}
+
+type Query {
+  plant(id: ID!): Plant!
+  stations: [Station]!
+  templates: [PlantTemplate]!
+}
+
+type Subscription {
+  station(input: ID!): [Station]!
+}
