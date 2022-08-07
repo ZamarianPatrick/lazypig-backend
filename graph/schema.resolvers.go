@@ -34,7 +34,7 @@ func (r *mutationResolver) UpdatePlantTemplate(ctx context.Context, id uint64, i
 }
 
 func (r *mutationResolver) DeletePlantTemplate(ctx context.Context, ids []*uint64) ([]*uint64, error) {
-	res := r.controller.DB().Where("id = ?", ids).Delete(&model.PlantTemplate{})
+	res := r.controller.DB().Delete(&model.PlantTemplate{}, ids)
 
 	if res.Error != nil {
 		return nil, res.Error
@@ -77,7 +77,7 @@ func (r *mutationResolver) UpdatePlant(ctx context.Context, id uint64, stationID
 }
 
 func (r *mutationResolver) DeletePlant(ctx context.Context, id uint64) (bool, error) {
-	r.controller.DB().Where("id = ?", id).Delete(&model.Plant{})
+	r.controller.DB().Delete(&model.Plant{}, id)
 	return true, nil
 }
 
