@@ -49,6 +49,7 @@ type Mutation {
 
 type Query {
   plant(id: ID!): Plant!
+  stationPorts: [String]!
   stations: [Station]!
   templates: [PlantTemplate]!
 }

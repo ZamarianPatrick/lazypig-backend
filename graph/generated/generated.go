@@ -70,9 +70,10 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Plant     func(childComplexity int, id uint64) int
-		Stations  func(childComplexity int) int
-		Templates func(childComplexity int) int
+		Plant        func(childComplexity int, id uint64) int
+		StationPorts func(childComplexity int) int
+		Stations     func(childComplexity int) int
+		Templates    func(childComplexity int) int
 	}
 
 	Station struct {
@@ -98,6 +99,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Plant(ctx context.Context, id uint64) (*model.Plant, error)
+	StationPorts(ctx context.Context) ([]*string, error)
 	Stations(ctx context.Context) ([]*model.Station, error)
 	Templates(ctx context.Context) ([]*model.PlantTemplate, error)
 }
@@ -271,6 +273,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.Plant(childComplexity, args["id"].(uint64)), true
+
+	case "Query.stationPorts":
+		if e.complexity.Query.StationPorts == nil {
+			break
+		}
+
+		return e.complexity.Query.StationPorts(childComplexity), true
 
 	case "Query.stations":
 		if e.complexity.Query.Stations == nil {
@@ -458,6 +467,7 @@ type Mutation {
 
 type Query {
   plant(id: ID!): Plant!
+  stationPorts: [String]!
   stations: [Station]!
   templates: [PlantTemplate]!
 }
@@ -1320,6 +1330,41 @@ func (ec *executionContext) _Query_plant(ctx context.Context, field graphql.Coll
 	res := resTmp.(*model.Plant)
 	fc.Result = res
 	return ec.marshalNPlant2ᚖgithubᚗcomᚋZamarianPatrickᚋlazypigᚑbackendᚋgraphᚋmodelᚐPlant(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_stationPorts(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().StationPorts(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*string)
+	fc.Result = res
+	return ec.marshalNString2ᚕᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_stations(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -3214,6 +3259,29 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Concurrently(i, func() graphql.Marshaler {
 				return rrm(innerCtx)
 			})
+		case "stationPorts":
+			field := field
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_stationPorts(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
+			})
 		case "stations":
 			field := field
 
@@ -4044,6 +4112,32 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕᚖstring(ctx context.Context, v interface{}) ([]*string, error) {
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOString2ᚖstring(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕᚖstring(ctx context.Context, sel ast.SelectionSet, v []*string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalOString2ᚖstring(ctx, sel, v[i])
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

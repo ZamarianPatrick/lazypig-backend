@@ -9,6 +9,7 @@ import (
 
 type Controller interface {
 	DB() *gorm.DB
+	PossibleStationPorts() []string
 }
 
 type controller struct {
@@ -50,4 +51,13 @@ func NewController() (Controller, error) {
 
 func (c *controller) DB() *gorm.DB {
 	return c.db
+}
+
+func (c *controller) PossibleStationPorts() []string {
+	return []string{
+		"A",
+		"B",
+		"C",
+		"D",
+	}
 }

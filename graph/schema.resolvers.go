@@ -98,6 +98,19 @@ func (r *queryResolver) Plant(ctx context.Context, id uint64) (*model.Plant, err
 	return &plant, nil
 }
 
+func (r *queryResolver) StationPorts(ctx context.Context) ([]*string, error) {
+
+	ports := r.controller.PossibleStationPorts()
+	ptrs := make([]*string, len(ports))
+
+	for i, port := range ports {
+		p := port
+		ptrs[i] = &p
+	}
+
+	return ptrs, nil
+}
+
 func (r *queryResolver) Stations(ctx context.Context) ([]*model.Station, error) {
 	var stations []*model.Station
 	r.controller.DB().Preload("Plants.Template").Preload(clause.Associations).Find(&stations)
