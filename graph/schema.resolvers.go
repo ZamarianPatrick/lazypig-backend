@@ -5,8 +5,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/ZamarianPatrick/lazypig-backend/graph/generated"
 	"github.com/ZamarianPatrick/lazypig-backend/graph/model"
 	"gorm.io/gorm/clause"
@@ -99,7 +97,6 @@ func (r *queryResolver) Plant(ctx context.Context, id uint64) (*model.Plant, err
 }
 
 func (r *queryResolver) StationPorts(ctx context.Context) ([]*string, error) {
-
 	ports := r.controller.PossibleStationPorts()
 	ptrs := make([]*string, len(ports))
 
@@ -123,8 +120,8 @@ func (r *queryResolver) Templates(ctx context.Context) ([]*model.PlantTemplate, 
 	return templates, nil
 }
 
-func (r *subscriptionResolver) Station(ctx context.Context, input uint64) (<-chan []*model.Station, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *subscriptionResolver) Stations(ctx context.Context) (<-chan *model.Station, error) {
+	return r.controller.StationChannel(ctx), nil
 }
 
 // Mutation returns generated.MutationResolver implementation.

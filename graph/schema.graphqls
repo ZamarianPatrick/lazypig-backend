@@ -55,5 +55,5 @@ type Query {
 }
 
 type Subscription {
-  station(input: ID!): [Station]!
+  stations: Station!
 }

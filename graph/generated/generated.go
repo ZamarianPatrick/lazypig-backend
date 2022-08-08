@@ -84,7 +84,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		Station func(childComplexity int, input uint64) int
+		Stations func(childComplexity int) int
 	}
 }
 
@@ -104,7 +104,7 @@ type QueryResolver interface {
 	Templates(ctx context.Context) ([]*model.PlantTemplate, error)
 }
 type SubscriptionResolver interface {
-	Station(ctx context.Context, input uint64) (<-chan []*model.Station, error)
+	Stations(ctx context.Context) (<-chan *model.Station, error)
 }
 
 type executableSchema struct {
@@ -323,17 +323,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Station.WaterLevel(childComplexity), true
 
-	case "Subscription.station":
-		if e.complexity.Subscription.Station == nil {
+	case "Subscription.stations":
+		if e.complexity.Subscription.Stations == nil {
 			break
 		}
 
-		args, err := ec.field_Subscription_station_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.Station(childComplexity, args["input"].(uint64)), true
+		return e.complexity.Subscription.Stations(childComplexity), true
 
 	}
 	return 0, false
@@ -473,7 +468,7 @@ type Query {
 }
 
 type Subscription {
-  station(input: ID!): [Station]!
+  stations: Station!
 }
 `, BuiltIn: false},
 }
@@ -660,21 +655,6 @@ func (ec *executionContext) field_Query_plant_args(ctx context.Context, rawArgs 
 		}
 	}
 	args["id"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Subscription_station_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 uint64
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNID2uint64(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
 	return args, nil
 }
 
@@ -1648,7 +1628,7 @@ func (ec *executionContext) _Station_plants(ctx context.Context, field graphql.C
 	return ec.marshalNPlant2ᚕgithubᚗcomᚋZamarianPatrickᚋlazypigᚑbackendᚋgraphᚋmodelᚐPlant(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Subscription_station(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+func (ec *executionContext) _Subscription_stations(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1664,16 +1644,9 @@ func (ec *executionContext) _Subscription_station(ctx context.Context, field gra
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Subscription_station_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return nil
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().Station(rctx, args["input"].(uint64))
+		return ec.resolvers.Subscription().Stations(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1686,7 +1659,7 @@ func (ec *executionContext) _Subscription_station(ctx context.Context, field gra
 		return nil
 	}
 	return func() graphql.Marshaler {
-		res, ok := <-resTmp.(<-chan []*model.Station)
+		res, ok := <-resTmp.(<-chan *model.Station)
 		if !ok {
 			return nil
 		}
@@ -1694,7 +1667,7 @@ func (ec *executionContext) _Subscription_station(ctx context.Context, field gra
 			w.Write([]byte{'{'})
 			graphql.MarshalString(field.Alias).MarshalGQL(w)
 			w.Write([]byte{':'})
-			ec.marshalNStation2ᚕᚖgithubᚗcomᚋZamarianPatrickᚋlazypigᚑbackendᚋgraphᚋmodelᚐStation(ctx, field.Selections, res).MarshalGQL(w)
+			ec.marshalNStation2ᚖgithubᚗcomᚋZamarianPatrickᚋlazypigᚑbackendᚋgraphᚋmodelᚐStation(ctx, field.Selections, res).MarshalGQL(w)
 			w.Write([]byte{'}'})
 		})
 	}
@@ -3427,8 +3400,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
-	case "station":
-		return ec._Subscription_station(ctx, fields[0])
+	case "stations":
+		return ec._Subscription_stations(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
