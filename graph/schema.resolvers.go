@@ -72,7 +72,7 @@ func (r *mutationResolver) UpdatePlant(ctx context.Context, id uint64, stationID
 		Template:  template,
 	}
 
-	r.controller.DB().Create(plant)
+	r.controller.DB().Save(plant)
 	return plant, nil
 }
 
