@@ -5,9 +5,55 @@ import (
 	"time"
 )
 
+type StationSettings struct {
+	GroveBus string `yaml:"groveBus"`
+
+	WaterLevelHighAddress uint16 `yaml:"waterLevelHighAddress"`
+	WaterLevelLowAddress  uint16 `yaml:"waterLevelLowAddress"`
+	MoistureAddress       uint16 `yaml:"moistureAddress"`
+
+	Ports []PortSetting `yaml:"ports"`
+}
+
+type PortSetting struct {
+	Port            string `yaml:"port"`
+	MoistureChannel byte   `yaml:"moistureChannel"`
+}
+
+var (
+	DefaultStationSettings = StationSettings{
+		GroveBus:              "1",
+		WaterLevelHighAddress: 0x78,
+		WaterLevelLowAddress:  0x77,
+		MoistureAddress:       0x08,
+		Ports: []PortSetting{
+			{
+				Port:            "A",
+				MoistureChannel: 0x0,
+			},
+			{
+				Port:            "B",
+				MoistureChannel: 0x02,
+			},
+			{
+				Port:            "C",
+				MoistureChannel: 0x04,
+			},
+			{
+				Port:            "D",
+				MoistureChannel: 0x06,
+			},
+		},
+	}
+)
+
 type Sensor interface {
 	Name() string
 	ReadValue() (float64, error)
+}
+
+type PortSensor interface {
+	Port() PortSetting
 }
 
 type Worker interface {
@@ -20,6 +66,7 @@ type Worker interface {
 type SensorData struct {
 	SensorName string
 	Value      float64
+	Port       PortSetting
 }
 
 type sensorWorker struct {
@@ -45,14 +92,23 @@ func (sw *sensorWorker) Start() {
 	go func() {
 		for sw.running {
 			for _, sensor := range sw.sensors {
+				portSensor, ok := sensor.(PortSensor)
+
 				val, err := sensor.ReadValue()
 				if err != nil {
-					log.Println(err)
+					if !ok {
+						log.Println(err)
+					}
 					continue
 				}
+
 				data := SensorData{
 					SensorName: sensor.Name(),
 					Value:      val,
+				}
+
+				if ok {
+					data.Port = portSensor.Port()
 				}
 
 				sw.valueChannel <- data

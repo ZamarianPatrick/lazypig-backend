@@ -2,14 +2,19 @@ package graph
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/ZamarianPatrick/lazypig-backend/graph/model"
 	"github.com/ZamarianPatrick/lazypig-backend/sensors"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"io/ioutil"
 	"log"
 	"math"
+	"os"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 	"sync"
@@ -26,10 +31,46 @@ type controller struct {
 	sensorWorker    sensors.Worker
 	mutex           sync.RWMutex
 	stationChannels map[string]chan *model.Station
+	stationSettings *sensors.StationSettings
 }
 
 func NewController() (Controller, error) {
-	db, err := gorm.Open(sqlite.Open("/root/db.sqlite"), &gorm.Config{
+
+	basePath := "/root/"
+	settingsFileName := "stationSettings.yml"
+
+	var stationSettings sensors.StationSettings
+
+	if _, err := os.Stat(basePath + settingsFileName); errors.Is(err, os.ErrNotExist) {
+		stationSettings = sensors.DefaultStationSettings
+		f, err := os.Create(basePath + settingsFileName)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := yaml.Marshal(stationSettings)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = f.Write(data)
+		if err != nil {
+			return nil, err
+		}
+
+		f.Close()
+	} else {
+		data, err := ioutil.ReadFile(basePath + settingsFileName)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(data, &stationSettings)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	db, err := gorm.Open(sqlite.Open(basePath+"db.sqlite"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
@@ -65,12 +106,17 @@ func NewController() (Controller, error) {
 	}
 
 	sensorWorker := sensors.NewWorker().
-		Add(sensors.NewWaterLevel(bus))
+		Add(sensors.NewWaterLevel(bus, stationSettings.WaterLevelHighAddress, stationSettings.WaterLevelLowAddress))
+
+	for _, port := range stationSettings.Ports {
+		sensorWorker.Add(sensors.NewMoisture(bus, stationSettings.MoistureAddress, port))
+	}
 
 	c := controller{
 		db:              db,
 		sensorWorker:    sensorWorker,
 		stationChannels: make(map[string]chan *model.Station),
+		stationSettings: &stationSettings,
 	}
 
 	c.ReadSensors()
@@ -104,8 +150,13 @@ func (c *controller) ReadSensors() {
 					c.mutex.RUnlock()
 
 					lastWaterLevel = data.Value
-					break
 				}
+
+				break
+
+			case "Moisture":
+				fmt.Println(data.Port.Port+"."+fmt.Sprintf("%d", data.Port.MoistureChannel)+":", data.Value)
+				break
 			}
 		}
 	}()

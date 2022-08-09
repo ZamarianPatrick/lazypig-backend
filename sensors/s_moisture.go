@@ -2,39 +2,54 @@ package sensors
 
 import (
 	"encoding/binary"
-	"fmt"
-	"log"
-	"periph.io/x/conn/v3"
 	"periph.io/x/conn/v3/i2c"
-	"periph.io/x/conn/v3/i2c/i2creg"
-	"periph.io/x/host/v3"
-	"time"
 )
 
-func main() {
+type moisture struct {
+	bus     i2c.BusCloser
+	dev     i2c.Dev
+	setting PortSetting
+}
 
-	state, err := host.Init()
+func NewMoisture(bus i2c.BusCloser, address uint16, setting PortSetting) Sensor {
+	return &moisture{
+		bus: bus,
+		dev: i2c.Dev{
+			Bus:  bus,
+			Addr: address,
+		},
+		setting: setting,
+	}
+}
 
-	bus, _ := i2creg.Open("1")
+func (s *moisture) Name() string {
+	return "Moisture"
+}
 
-	dev := i2c.Dev{
-		Bus:  bus,
-		Addr: 0x08,
+func (s *moisture) Port() PortSetting {
+	return s.setting
+}
+
+func (s *moisture) ReadValue() (float64, error) {
+
+	write := []byte{0x20 + s.setting.MoistureChannel}
+	read := make([]byte, 2)
+	if err := s.dev.Tx(write, read); err != nil {
+		return 0, err
 	}
 
-	var _ conn.Conn = &dev
+	val := float64(binary.LittleEndian.Uint16(read))
 
-	for true {
-		write := []byte{0x20 + 0}
-		read := make([]byte, 2)
-		if err := dev.Tx(write, read); err != nil {
-			log.Fatalln("here:", err)
-		}
-
-		fmt.Println(binary.LittleEndian.Uint16(read))
-
-		time.Sleep(time.Millisecond * 200)
+	if val <= 1000 {
+		return 100, nil
 	}
 
-	fmt.Println(state, err)
+	if val >= 2000 {
+		return 0, nil
+	}
+
+	diff := -(val - 2000)
+	percentage := diff / 10
+
+	return percentage, nil
 }

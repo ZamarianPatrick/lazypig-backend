@@ -5,12 +5,22 @@ import (
 )
 
 type waterLevel struct {
-	bus i2c.BusCloser
+	bus  i2c.BusCloser
+	high i2c.Dev
+	low  i2c.Dev
 }
 
-func NewWaterLevel(bus i2c.BusCloser) Sensor {
+func NewWaterLevel(bus i2c.BusCloser, highAddress uint16, lowAddress uint16) Sensor {
 	return &waterLevel{
 		bus: bus,
+		high: i2c.Dev{
+			Bus:  bus,
+			Addr: highAddress,
+		},
+		low: i2c.Dev{
+			Bus:  bus,
+			Addr: lowAddress,
+		},
 	}
 }
 
@@ -20,25 +30,14 @@ func (s *waterLevel) Name() string {
 
 func (s *waterLevel) ReadValue() (float64, error) {
 
-	high := i2c.Dev{
-		Bus:  s.bus,
-		Addr: 0x78,
-	}
-
-	low := i2c.Dev{
-		Bus:  s.bus,
-		Addr: 0x77,
-	}
-
-	write := []byte{0x0}
 	readHigh := make([]byte, 12)
 	readLow := make([]byte, 8)
 
-	if err := high.Tx(write, readHigh); err != nil {
+	if err := s.high.Tx(nil, readHigh); err != nil {
 		return 0, err
 	}
 
-	if err := low.Tx(write, readLow); err != nil {
+	if err := s.low.Tx(nil, readLow); err != nil {
 		return 0, err
 	}
 
