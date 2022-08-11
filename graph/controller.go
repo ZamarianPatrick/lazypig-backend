@@ -124,6 +124,11 @@ func NewController() (Controller, error) {
 	return &c, nil
 }
 
+type plantState struct {
+	moistureValue float64
+	pumpRequired  bool
+}
+
 func (c *controller) ReadSensors() {
 	go func() {
 		var ch chan sensors.SensorData
@@ -131,6 +136,7 @@ func (c *controller) ReadSensors() {
 
 		stationID := 1
 		lastWaterLevel := -1.0
+		lastPlantStates := make(map[string]*plantState)
 
 		for true {
 			data := <-ch
@@ -155,8 +161,54 @@ func (c *controller) ReadSensors() {
 				break
 
 			case "Moisture":
-				fmt.Println(data.Port.Port+"."+fmt.Sprintf("%d", data.Port.MoistureChannel)+":", data.Value)
+				var lastPlantState *plantState
+				var ok bool
+				if lastPlantState, ok = lastPlantStates[data.Port.Port]; !ok {
+					lastPlantState = &plantState{}
+					lastPlantStates[data.Port.Port] = lastPlantState
+				}
+
+				if !ok || math.Abs(lastPlantState.moistureValue-data.Value) > 3 {
+					var plant model.Plant
+					c.db.Preload("Template").Where("port = ? AND station_id = ?", data.Port.Port, stationID).First(&plant)
+
+					if plant.Active {
+						if plant.Template.WaterThreshold >= data.Value {
+							fmt.Println("Port", data.Port.Port, data.Value)
+							if lastWaterLevel > 1 {
+								lastPlantState.pumpRequired = true
+								// TODO open valve
+							} else {
+								log.Println("Port", data.Port.Port, "plant is thirsty but no water is there :(")
+							}
+						} else {
+							log.Println("Port", data.Port.Port, "plant not thirsty", data.Value)
+							lastPlantState.pumpRequired = false
+							// TODO close valve
+						}
+					} else {
+						log.Println("Port", data.Port.Port, "plant not active")
+					}
+					lastPlantState.moistureValue = data.Value
+				}
+
 				break
+			}
+
+			pumpOn := false
+			for _, v := range lastPlantStates {
+				if v.pumpRequired {
+					pumpOn = true
+					break
+				}
+			}
+
+			if pumpOn {
+				// TODO turn on pump
+				fmt.Println("turn on pump")
+			} else {
+				// TODO turn off pump
+				fmt.Println("turn off pump")
 			}
 		}
 	}()
