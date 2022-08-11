@@ -69,6 +69,10 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
+func Pong(c *gin.Context) {
+	c.String(200, "pong")
+}
+
 func main() {
 
 	r := gin.Default()
@@ -79,6 +83,7 @@ func main() {
 
 	r.Use(corsMiddleware())
 	r.Any("/graphql", graphqlHandler(resolver))
+	r.GET("/ping", Pong)
 	r.GET("/", playgroundHandler())
 	r.Run(":8080")
 
