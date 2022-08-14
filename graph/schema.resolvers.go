@@ -5,6 +5,7 @@ package graph
 
 import (
 	"context"
+
 	"github.com/ZamarianPatrick/lazypig-backend/graph/generated"
 	"github.com/ZamarianPatrick/lazypig-backend/graph/model"
 	"gorm.io/gorm/clause"
@@ -87,6 +88,11 @@ func (r *mutationResolver) UpdateStation(ctx context.Context, id uint64, input m
 	r.controller.DB().Save(&station)
 
 	return &station, nil
+}
+
+func (r *mutationResolver) MoistureFakeValue(ctx context.Context, port string, value float64) (bool, error) {
+	r.controller.SetMoistureFakeValue(port, value)
+	return true, nil
 }
 
 func (r *queryResolver) Plant(ctx context.Context, id uint64) (*model.Plant, error) {

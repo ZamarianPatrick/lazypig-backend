@@ -1,7 +1,10 @@
 package sensors
 
 import (
+	"fmt"
 	"log"
+	"periph.io/x/conn/v3/gpio"
+	"periph.io/x/host/v3/rpi"
 	"time"
 )
 
@@ -11,6 +14,7 @@ type StationSettings struct {
 	WaterLevelHighAddress uint16 `yaml:"waterLevelHighAddress"`
 	WaterLevelLowAddress  uint16 `yaml:"waterLevelLowAddress"`
 	MoistureAddress       uint16 `yaml:"moistureAddress"`
+	PumpGPIO              int    `yaml:"pumpGPIO"`
 
 	Ports []PortSetting `yaml:"ports"`
 }
@@ -18,6 +22,7 @@ type StationSettings struct {
 type PortSetting struct {
 	Port            string `yaml:"port"`
 	MoistureChannel byte   `yaml:"moistureChannel"`
+	ValveGPIO       int    `yaml:"valveGPIO"`
 }
 
 var (
@@ -26,22 +31,17 @@ var (
 		WaterLevelHighAddress: 0x78,
 		WaterLevelLowAddress:  0x77,
 		MoistureAddress:       0x08,
+		PumpGPIO:              23,
 		Ports: []PortSetting{
 			{
 				Port:            "A",
 				MoistureChannel: 0x0,
+				ValveGPIO:       24,
 			},
 			{
 				Port:            "B",
 				MoistureChannel: 0x02,
-			},
-			{
-				Port:            "C",
-				MoistureChannel: 0x04,
-			},
-			{
-				Port:            "D",
-				MoistureChannel: 0x06,
+				ValveGPIO:       25,
 			},
 		},
 	}
@@ -124,4 +124,59 @@ func (sw *sensorWorker) Stop() {
 
 func (sw *sensorWorker) DataChannel() chan SensorData {
 	return sw.valueChannel
+}
+
+func GetGPIO(gpio int) (gpio.PinIO, error) {
+	switch gpio {
+	case 2:
+		return rpi.P1_3, nil
+	case 3:
+		return rpi.P1_5, nil
+	case 4:
+		return rpi.P1_7, nil
+	case 5:
+		return rpi.P1_29, nil
+	case 6:
+		return rpi.P1_31, nil
+	case 7:
+		return rpi.P1_26, nil
+	case 8:
+		return rpi.P1_24, nil
+	case 9:
+		return rpi.P1_21, nil
+	case 10:
+		return rpi.P1_19, nil
+	case 11:
+		return rpi.P1_23, nil
+	case 12:
+		return rpi.P1_32, nil
+	case 13:
+		return rpi.P1_33, nil
+	case 16:
+		return rpi.P1_36, nil
+	case 17:
+		return rpi.P1_11, nil
+	case 18:
+		return rpi.P1_12, nil
+	case 19:
+		return rpi.P1_35, nil
+	case 20:
+		return rpi.P1_38, nil
+	case 21:
+		return rpi.P1_40, nil
+	case 22:
+		return rpi.P1_15, nil
+	case 23:
+		return rpi.P1_16, nil
+	case 24:
+		return rpi.P1_18, nil
+	case 25:
+		return rpi.P1_22, nil
+	case 26:
+		return rpi.P1_37, nil
+	case 27:
+		return rpi.P1_13, nil
+	default:
+		return nil, fmt.Errorf("gpio %d cant found", gpio)
+	}
 }

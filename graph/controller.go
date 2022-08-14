@@ -15,6 +15,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 	"sync"
@@ -24,6 +25,7 @@ type Controller interface {
 	DB() *gorm.DB
 	PossibleStationPorts() []string
 	StationChannel(ctx context.Context) chan *model.Station
+	SetMoistureFakeValue(port string, value float64)
 }
 
 type controller struct {
@@ -32,6 +34,8 @@ type controller struct {
 	mutex           sync.RWMutex
 	stationChannels map[string]chan *model.Station
 	stationSettings *sensors.StationSettings
+
+	moistureFakes []*sensors.MoistureFake
 }
 
 func NewController() (Controller, error) {
@@ -108,20 +112,46 @@ func NewController() (Controller, error) {
 	sensorWorker := sensors.NewWorker().
 		Add(sensors.NewWaterLevel(bus, stationSettings.WaterLevelHighAddress, stationSettings.WaterLevelLowAddress))
 
-	for _, port := range stationSettings.Ports {
-		sensorWorker.Add(sensors.NewMoisture(bus, stationSettings.MoistureAddress, port))
-	}
-
 	c := controller{
 		db:              db,
 		sensorWorker:    sensorWorker,
 		stationChannels: make(map[string]chan *model.Station),
 		stationSettings: &stationSettings,
+		moistureFakes:   make([]*sensors.MoistureFake, 0),
+	}
+
+	for _, port := range stationSettings.Ports {
+		s := sensors.NewMoistureFake(port)
+		sensorWorker.Add(s)
+		moistureFake := s.(*sensors.MoistureFake)
+		c.moistureFakes = append(c.moistureFakes, moistureFake)
+	}
+
+	pin, err := sensors.GetGPIO(c.stationSettings.PumpGPIO)
+	if err != nil {
+		return nil, err
+	}
+	pin.Out(gpio.Low)
+
+	for _, p := range stationSettings.Ports {
+		pin, err := sensors.GetGPIO(p.ValveGPIO)
+		if err != nil {
+			return nil, err
+		}
+		pin.Out(gpio.Low)
 	}
 
 	c.ReadSensors()
 	sensorWorker.Start()
 	return &c, nil
+}
+
+func (c *controller) SetMoistureFakeValue(port string, value float64) {
+	for _, m := range c.moistureFakes {
+		if m.Port().Port == port {
+			m.SetValue(value)
+		}
+	}
 }
 
 type plantState struct {
@@ -177,14 +207,24 @@ func (c *controller) ReadSensors() {
 							fmt.Println("Port", data.Port.Port, data.Value)
 							if lastWaterLevel > 1 {
 								lastPlantState.pumpRequired = true
-								// TODO open valve
+								pin, err := sensors.GetGPIO(data.Port.ValveGPIO)
+								if err != nil {
+									fmt.Println(err)
+									continue
+								}
+								pin.Out(gpio.Low)
 							} else {
 								log.Println("Port", data.Port.Port, "plant is thirsty but no water is there :(")
 							}
 						} else {
 							log.Println("Port", data.Port.Port, "plant not thirsty", data.Value)
 							lastPlantState.pumpRequired = false
-							// TODO close valve
+							pin, err := sensors.GetGPIO(data.Port.ValveGPIO)
+							if err != nil {
+								fmt.Println(err)
+								continue
+							}
+							pin.Out(gpio.High)
 						}
 					} else {
 						log.Println("Port", data.Port.Port, "plant not active")
@@ -204,11 +244,19 @@ func (c *controller) ReadSensors() {
 			}
 
 			if pumpOn {
-				// TODO turn on pump
-				fmt.Println("turn on pump")
+				pin, err := sensors.GetGPIO(c.stationSettings.PumpGPIO)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				pin.Out(gpio.Low)
 			} else {
-				// TODO turn off pump
-				fmt.Println("turn off pump")
+				pin, err := sensors.GetGPIO(c.stationSettings.PumpGPIO)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				pin.Out(gpio.High)
 			}
 		}
 	}()
@@ -239,10 +287,12 @@ func (c *controller) StationChannel(ctx context.Context) chan *model.Station {
 }
 
 func (c *controller) PossibleStationPorts() []string {
-	return []string{
-		"A",
-		"B",
-		"C",
-		"D",
+
+	portNames := make([]string, len(c.stationSettings.Ports))
+
+	for i, p := range c.stationSettings.Ports {
+		portNames[i] = p.Port
 	}
+
+	return portNames
 }

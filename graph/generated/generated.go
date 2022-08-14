@@ -50,6 +50,7 @@ type ComplexityRoot struct {
 		CreatePlantTemplate func(childComplexity int, input model.PlantTemplateInput) int
 		DeletePlant         func(childComplexity int, id uint64) int
 		DeletePlantTemplate func(childComplexity int, ids []*uint64) int
+		MoistureFakeValue   func(childComplexity int, port string, value float64) int
 		UpdatePlant         func(childComplexity int, id uint64, stationID uint64, input model.PlantInput) int
 		UpdatePlantTemplate func(childComplexity int, id uint64, input model.PlantTemplateInput) int
 		UpdateStation       func(childComplexity int, id uint64, input model.StationInput) int
@@ -96,6 +97,7 @@ type MutationResolver interface {
 	UpdatePlant(ctx context.Context, id uint64, stationID uint64, input model.PlantInput) (*model.Plant, error)
 	DeletePlant(ctx context.Context, id uint64) (bool, error)
 	UpdateStation(ctx context.Context, id uint64, input model.StationInput) (*model.Station, error)
+	MoistureFakeValue(ctx context.Context, port string, value float64) (bool, error)
 }
 type QueryResolver interface {
 	Plant(ctx context.Context, id uint64) (*model.Plant, error)
@@ -169,6 +171,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeletePlantTemplate(childComplexity, args["ids"].([]*uint64)), true
+
+	case "Mutation.moistureFakeValue":
+		if e.complexity.Mutation.MoistureFakeValue == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_moistureFakeValue_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.MoistureFakeValue(childComplexity, args["port"].(string), args["value"].(float64)), true
 
 	case "Mutation.updatePlant":
 		if e.complexity.Mutation.UpdatePlant == nil {
@@ -458,6 +472,8 @@ type Mutation {
   deletePlant(id: ID!): Boolean!
 
   updateStation(id: ID!, input: StationInput!): Station!
+
+  moistureFakeValue(port: String!, value: Float!): Boolean!
 }
 
 type Query {
@@ -544,6 +560,30 @@ func (ec *executionContext) field_Mutation_deletePlant_args(ctx context.Context,
 		}
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_moistureFakeValue_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["port"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("port"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["port"] = arg0
+	var arg1 float64
+	if tmp, ok := rawArgs["value"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+		arg1, err = ec.unmarshalNFloat2float64(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["value"] = arg1
 	return args, nil
 }
 
@@ -988,6 +1028,48 @@ func (ec *executionContext) _Mutation_updateStation(ctx context.Context, field g
 	res := resTmp.(*model.Station)
 	fc.Result = res
 	return ec.marshalNStation2ᚖgithubᚗcomᚋZamarianPatrickᚋlazypigᚑbackendᚋgraphᚋmodelᚐStation(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_moistureFakeValue(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_moistureFakeValue_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().MoistureFakeValue(rctx, args["port"].(string), args["value"].(float64))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Plant_id(ctx context.Context, field graphql.CollectedField, obj *model.Plant) (ret graphql.Marshaler) {
@@ -3050,6 +3132,16 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "updateStation":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateStation(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "moistureFakeValue":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_moistureFakeValue(ctx, field)
 			}
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)

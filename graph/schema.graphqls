@@ -45,6 +45,8 @@ type Mutation {
   deletePlant(id: ID!): Boolean!
 
   updateStation(id: ID!, input: StationInput!): Station!
+
+  moistureFakeValue(port: String!, value: Float!): Boolean!
 }
 
 type Query {
