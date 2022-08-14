@@ -47,6 +47,7 @@ type Mutation {
   updateStation(id: ID!, input: StationInput!): Station!
 
   moistureFakeValue(port: String!, value: Float!): Boolean!
+  waterFakeValue(value: Float!): Boolean!
 }
 
 type Query {
@@ -54,6 +55,7 @@ type Query {
   stationPorts: [String]!
   stations: [Station]!
   templates: [PlantTemplate]!
+  version: String!
 }
 
 type Subscription {

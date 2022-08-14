@@ -7,7 +7,7 @@ COPY . /app/
 WORKDIR /app/
 
 ENV CGO_ENABLED=1
-RUN go build github.com/ZamarianPatrick/lazypig-backend
+RUN go build -ldflags "-X main.VERSION=$VERSION" github.com/ZamarianPatrick/lazypig-backend
 
 FROM alpine:3.15
 COPY --from=build-env /app/lazypig-backend /bin/lazypig

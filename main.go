@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var VERSION string = "dev"
+
 func graphqlHandler(resolver *graph.Resolver) gin.HandlerFunc {
 	srv := handler.New(generated.NewExecutableSchema(generated.Config{Resolvers: resolver}))
 	srv.AddTransport(&transport.Websocket{
@@ -76,7 +78,7 @@ func Pong(c *gin.Context) {
 func main() {
 
 	r := gin.Default()
-	resolver, err := graph.NewResolver()
+	resolver, err := graph.NewResolver(VERSION)
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -14,11 +14,14 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"periph.io/x/conn/v3/gpio"
+	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 	"sync"
+	"time"
 )
 
 type Controller interface {
@@ -26,19 +29,25 @@ type Controller interface {
 	PossibleStationPorts() []string
 	StationChannel(ctx context.Context) chan *model.Station
 	SetMoistureFakeValue(port string, value float64)
+	SetWaterLevelFakeValue(value float64)
 }
 
 type controller struct {
 	db              *gorm.DB
+	bus             i2c.BusCloser
 	sensorWorker    sensors.Worker
 	mutex           sync.RWMutex
 	stationChannels map[string]chan *model.Station
 	stationSettings *sensors.StationSettings
 
-	moistureFakes []*sensors.MoistureFake
+	moistureFakes  []*sensors.MoistureFake
+	waterLevelFake *sensors.WaterFake
+
+	fakeValues bool
+	random     *rand.Rand
 }
 
-func NewController() (Controller, error) {
+func NewController(fakeValues bool) (Controller, error) {
 
 	basePath := "/root/"
 	settingsFileName := "stationSettings.yml"
@@ -99,32 +108,59 @@ func NewController() (Controller, error) {
 		db.Create(&station)
 	}
 
-	_, err = host.Init()
-	if err != nil {
-		return nil, err
-	}
-
-	bus, err := i2creg.Open("1")
-	if err != nil {
-		return nil, err
-	}
-
-	sensorWorker := sensors.NewWorker().
-		Add(sensors.NewWaterLevel(bus, stationSettings.WaterLevelHighAddress, stationSettings.WaterLevelLowAddress))
+	randomSource := rand.NewSource(time.Now().UnixNano())
+	random := rand.New(randomSource)
 
 	c := controller{
 		db:              db,
-		sensorWorker:    sensorWorker,
 		stationChannels: make(map[string]chan *model.Station),
 		stationSettings: &stationSettings,
 		moistureFakes:   make([]*sensors.MoistureFake, 0),
+		random:          random,
 	}
 
+	fake := sensors.NewWaterFake(100)
+	waterFake := fake.(*sensors.WaterFake)
+
+	var sensorWorker sensors.Worker
+	if fakeValues {
+		sensorWorker =
+			sensors.NewWorker().
+				Add(waterFake)
+
+	} else {
+		_, err = host.Init()
+		if err != nil {
+			return nil, err
+		}
+
+		bus, err := i2creg.Open("1")
+		if err != nil {
+			return nil, err
+		}
+
+		c.bus = bus
+
+		sensorWorker =
+			sensors.NewWorker().
+				Add(sensors.NewWaterLevel(bus, stationSettings.WaterLevelHighAddress, stationSettings.WaterLevelLowAddress))
+
+	}
+
+	c.waterLevelFake = waterFake
+	c.sensorWorker = sensorWorker
+
 	for _, port := range stationSettings.Ports {
-		s := sensors.NewMoistureFake(port)
+		var s sensors.Sensor
+		if fakeValues {
+			s = sensors.NewMoistureFake(port)
+			moistureFake := s.(*sensors.MoistureFake)
+			c.moistureFakes = append(c.moistureFakes, moistureFake)
+		} else {
+			s = sensors.NewMoisture(c.bus, stationSettings.MoistureAddress, port)
+		}
+
 		sensorWorker.Add(s)
-		moistureFake := s.(*sensors.MoistureFake)
-		c.moistureFakes = append(c.moistureFakes, moistureFake)
 	}
 
 	pin, err := sensors.GetGPIO(c.stationSettings.PumpGPIO)
@@ -151,6 +187,21 @@ func (c *controller) SetMoistureFakeValue(port string, value float64) {
 		if m.Port().Port == port {
 			m.SetValue(value)
 		}
+	}
+}
+
+func (c *controller) SetWaterLevelFakeValue(value float64) {
+	actualVal, _ := c.waterLevelFake.ReadValue()
+	for actualVal != value {
+		if actualVal > value {
+			actualVal -= 1
+		} else {
+			actualVal += 1
+		}
+		c.waterLevelFake.SetValue(actualVal)
+
+		timeout := time.Duration(c.random.Intn(200) + 100)
+		time.Sleep(time.Millisecond * timeout)
 	}
 }
 
