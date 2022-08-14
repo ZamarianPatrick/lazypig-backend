@@ -12,4 +12,7 @@ RUN go build -ldflags "-X main.VERSION=$VERSION" github.com/ZamarianPatrick/lazy
 FROM alpine:3.15
 COPY --from=build-env /app/lazypig-backend /bin/lazypig
 
+RUN mkdir /app/
+WORKDIR /app/
+
 ENTRYPOINT /bin/lazypig

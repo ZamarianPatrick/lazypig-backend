@@ -49,7 +49,7 @@ type controller struct {
 
 func NewController(fakeValues bool) (Controller, error) {
 
-	basePath := "/root/"
+	basePath := "./"
 	settingsFileName := "stationSettings.yml"
 
 	var stationSettings sensors.StationSettings
